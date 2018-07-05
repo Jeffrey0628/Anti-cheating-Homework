@@ -1,5 +1,26 @@
 #/usr/bin/env python
 #!coding:utf-8  
+
+##########################################################################
+# python2.7
+# 这是一个简单的查重脚本
+# 文档结构必须如下
+# ├── path
+# │   ├── 1603121431尹振飞
+# │   │   ├── file1
+# │   │   ├── file2
+# │   │   └── dir1
+# │   │       └── file3
+# │   ├── 1600312433裸羊
+# │   │   ├── file1
+# |   |   └── dir1
+# │   │       └── file2
+# 1. 根目录path
+# 2. 根目录下单每一个文件夹以"学号姓名"命名，作为每个学生的目录
+# 3. 文件夹层数无要求，文件名无要求
+# 输出结果在 results_log_path
+##########################################################################
+
 import os
 import hashlib
 import re
@@ -32,8 +53,6 @@ def find_pair(id_path_dict, id_name_dict, source="1603121431尹振飞.zip"):
     id_name_dict.update(id_name_pair)
     id_path_dict.update(id_path_pair)
      
-
-     
 def get_file_md5(f):
     m = hashlib.md5()
 
@@ -43,22 +62,6 @@ def get_file_md5(f):
             break
         m.update(data)
     return m.hexdigest()
-
-
-# def traverse_all_file(path='.'):
-#     files = os.listdir(path)
-#     results = []
-#     for file in files:
-#         if not os.path.isdir(file):
-#         #    print(file)
-#             pair = find_pair(file)
-#             with open(file, 'rb') as f:
-#                 md5 =get_file_md5(f)
-#                 # print(md5)
-#                 if pair: 
-#                     pair.append(md5)
-#                     results.append(pair)
-#     return results
 
 def collect_homework(homework_dict = {}, id_name_dict = {}, id_path_dict = {}, root_path="."):
     name_dir = os.listdir(root_path)
@@ -98,25 +101,82 @@ def collect_homework(homework_dict = {}, id_name_dict = {}, id_path_dict = {}, r
         homework_dict.update({id:file_list})
 
 
+# homework_dict
+# {
+#   id1:[                     ----homework_dict[id]
+#           {file1 : md5_1},  ----lst_file_pair
+#           {file2 : md5_2}, 
+#           {file3 : md5_3}
+#       ], 
+#   id2:[
+#           {file1 : md5_1}, 
+#           {file2 : md5_2}, 
+#           {file3 : md5_3}
+#       ],
+#   ...
+# }
 
-    # rest_path = Queue.Queue()
-    # rest_path.put(root_path)
-    # while not rest_path.empty():
-    #     tmp_path = rest_path.get()
-    #     if os.path.isdir(tmp_path):
-    #         files = os.listdir(temp_path)
-    #         for file in files:
-    #             rest_path.put(file)
-    #     else: #if tmp_path is file
-
+# 将结果的详细信息写入results_log中，格式为按照文件名作为key，各项为相同的其他文件
+def find_cheater(homework_dict, results_log_path):
+    ids = homework_dict.keys()
+    # results结构
+    # {
+    #   id1:{                                       
+    #           file1 :                             ----record结构为file:[file1, file2]
+    #                   [ file2, file3, file4 ],    ----item
+    #           file2 : 
+    #                   [ file2, file3, file4 ], 
+    #           file3 : 
+    #                   [ file2, file3, file4 ]
+    #       {, 
+    #   id2:{
+    #           file1 : [ file2, file3, file4 ], 
+    #           file2 : [ file2, file3, file4 ], 
+    #           file3 : [ file2, file3, file4 ]
+    #       },
+    #   ...
+    # }
+    results = {}
+    for id in ids:
+        record = {}
+        for lst_file_pair in homework_dict[id]:
             
-    #     files = os.listdir(path)
-    #     for file in files:
-    #         rest_path.put(file)
+            file_path = lst_file_pair.keys()
+            # 得到某个pair重复的全部文件list，存放于item中
+            # k是具体的文件目录
+            for k in file_path:
+                item = []
 
-    # files = os.listdir(path)
-    # for file in files:
-    #     if 
+                to_compare_md5 = lst_file_pair[k]
+
+                # 遍历找相同
+                for compared_id in ids:
+                    if compared_id != id:
+                        for compared_pair in homework_dict[compared_id]:
+                            compared_file = compared_pair.keys()
+                            for file_path in compared_file:
+                                compared_md5 = compared_pair[file_path]
+                                if to_compare_md5 == compared_md5:
+                                    item.append(file_path)
+                if item:
+                    record[k] = item
+        if record:
+            results[id] = record
+    
+    ids = results.keys()
+    for id in ids:
+        records = results[id]
+        records_keys = records.keys()
+        print("id:"+id+"")
+        for source_file in records_keys:
+            cheated_list = records[source_file]
+            print("  source file:")
+            print("    "+source_file)
+            print("  cheated file:")
+            for file in cheated_list:
+                print("    " + file)
+            
+
 
 if __name__ == "__main__" :
 
@@ -168,6 +228,7 @@ if __name__ == "__main__" :
     # }
     ids = homework_dict.keys()
     for id in ids:
+        # 存放对应ID的md5集
         md5_tmp = set()
         log_file.write(id+" : ")
         for lst_file_pair in homework_dict[id]:
@@ -177,7 +238,9 @@ if __name__ == "__main__" :
                 # print(k),
                 # print(lst_file_pair[k])
                 if lst_file_pair[k] in md5_all:
-                    print(id + " "+ k + " " + lst_file_pair[k])
+                    # !!!!! 这个地方可以显示结果
+                    # print(id + " "+ k + " " + lst_file_pair[k])
+                    pass
                 elif lst_file_pair[k] in md5_tmp:
                     pass
                 else:
@@ -185,11 +248,16 @@ if __name__ == "__main__" :
                 log_file.write("\r\n    ")
                 log_file.write(k+" "+lst_file_pair[k])
         log_file.write("\r\n")
-        print("\r\nabc\r\n"+len(md5_tmp))
         md5_all.update(md5_tmp)
     
     for e in md5_all:
         md5_file.write(e+"\r\n")
+
+    # 将抄袭的详细信息写入log
+    results_log_path = "./results.log"
+    find_cheater(homework_dict, results_log_path)
+
+
 
     log_file.close()
     md5_file.close()
